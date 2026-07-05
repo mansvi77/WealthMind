@@ -1,6 +1,6 @@
 'use client';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '../../../lib/utils';
 
 export default function CategoryPieChart({ data = [] }) {
   if (data.length === 0) {

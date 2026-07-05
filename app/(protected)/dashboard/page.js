@@ -1,9 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
-
+// Step back 3 levels to reach lib/
 import { supabase } from '../../../lib/supabaseClient';
-import { formatCurrency } from '@/lib/utils';
-import CategoryPieChart from '@/components/CategoryPieChart';
+import { formatCurrency } from '../../../lib/utils';
+
+// Step back 2 levels to reach components/
+import CategoryPieChart from '../../components/CategoryPieChart';  
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState({ income: 0, expenses: 0, balance: 0 });
@@ -13,7 +15,6 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchDashboardMetrics() {
       try {
-        // Fetch all transactions along with their joined categories
         const { data: txns, error: txError } = await supabase
           .from('transactions')
           .select('*, categories(name, color)');
@@ -58,9 +59,9 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <div className="text-center space-y-2 animate-pulse">
-          <div className="text-2xl font-semibold text-slate-700">Assembling Financial Metrics...</div>
-          <p className="text-sm text-slate-400">Querying localized isolation tables...</p>
+        <div className="text-center space-y-3 animate-pulse">
+          <div className="text-lg font-semibold text-slate-700">Assembling Financial Metrics...</div>
+          <p className="text-xs text-slate-400">Querying secure isolation tables...</p>
         </div>
       </div>
     );
@@ -69,44 +70,56 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Financial Command Center</h1>
-        <p className="text-sm text-slate-500 mt-1">Deterministic metrics processed client-side without runtime execution fees.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Financial Command Center</h1>
+        <p className="text-sm text-slate-500 mt-1">Deterministic analytics engine processed completely client-side.</p>
       </div>
 
-      {/* Numerical Metrics Summary Matrix */}
+      {/* Metrics Grid Matrix */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm">
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Capital Inflow</div>
-          <div className="text-2xl font-bold text-emerald-600 mt-2">{formatCurrency(metrics.income)}</div>
+          <div className="text-3xl font-extrabold text-emerald-600 mt-2">{formatCurrency(metrics.income)}</div>
         </div>
-        <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm">
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Capital Outflow</div>
-          <div className="text-2xl font-bold text-rose-600 mt-2">{formatCurrency(metrics.expenses)}</div>
+          <div className="text-3xl font-extrabold text-rose-600 mt-2">{formatCurrency(metrics.expenses)}</div>
         </div>
-        <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm">
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Net Runway Capital</div>
-          <div className="text-2xl font-bold text-indigo-600 mt-2">{formatCurrency(metrics.balance)}</div>
+          <div className="text-3xl font-extrabold text-indigo-600 mt-2">{formatCurrency(metrics.balance)}</div>
         </div>
       </div>
 
-      {/* Charts & Operational Blueprint Information Block */}
+      {/* Analytical Layout Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm lg:col-span-2 flex flex-col justify-between">
-          <h3 className="font-semibold text-slate-800 mb-4">Allocated Expenditure Distribution</h3>
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm lg:col-span-2">
+          <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Allocated Expenditure Distribution</h3>
           <CategoryPieChart data={pieData} />
         </div>
-        <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm flex flex-col justify-between">
+        
+        <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-slate-100 p-6 rounded-2xl shadow-sm flex flex-col justify-between border border-slate-800">
           <div>
-            <h3 className="font-semibold text-slate-800 mb-2">Interview Architecture Talking Points</h3>
-            <p className="text-xs text-slate-400 mb-4">Be ready to explain these production principles to technical interviewers:</p>
-            <ul className="text-xs text-slate-600 space-y-3 list-disc list-inside">
-              <li><b className="text-slate-800">Zero-Cost Classification:</b> Built on a rule-based engine mapping array matches, skipping fragile and costly LLM context tokens.</li>
-              <li><b className="text-slate-800">Row-Level Security:</b> The DB itself filters data isolation via application claims ($auth.uid() = user_id$).</li>
-              <li><b className="text-slate-800">Interval Clustering:</b> Uses statistical standard deviation algorithms to identify billing loops automatically.</li>
+            <h3 className="font-bold text-white mb-2 tracking-tight text-lg flex items-center gap-2">
+              <span>🚀</span> Interview Architecture
+            </h3>
+            <p className="text-xs text-slate-400 mb-5 leading-relaxed">Be ready to explain these architectural principles to technical interviewers:</p>
+            <ul className="text-xs text-slate-300 space-y-4 list-none">
+              <li className="flex items-start gap-2.5">
+                <span className="text-emerald-400 mt-0.5">✔</span>
+                <span><b className="text-white font-medium">Zero-Cost Matching:</b> Linear $O(N)$ regex cleaning instead of costly, high-latency LLM context tokens.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-emerald-400 mt-0.5">✔</span>
+                <span><b className="text-white font-medium">Row-Level Security:</b> Postgres storage isolation policies matching user session context identities directly.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-emerald-400 mt-0.5">✔</span>
+                <span><b className="text-white font-medium">Interval Clustering:</b> Algorithmic subscription identification via low standard-deviation sequence loops.</span>
+              </li>
             </ul>
           </div>
         </div>
       </div>
     </div>
   );
-}  
+}

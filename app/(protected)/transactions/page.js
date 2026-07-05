@@ -1,10 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { formatCurrency } from '@/lib/utils';
-import { autoCategorize } from '@/lib/categorizationEngine';
-import CSVUploadZone from '@/components/CSVUploadZone';
+// Step back 3 levels to exit (protected)/transactions/ and enter lib/
+import { supabase } from '../../../lib/supabaseClient';
+import { formatCurrency } from '../../../lib/utils';
+import { autoCategorize } from '../../../lib/categorizationEngine';
 
+// Step back 2 levels to exit (protected)/transactions/ and enter components/
+import CSVUploadZone from '../../components/CSVUploadZone';  
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
