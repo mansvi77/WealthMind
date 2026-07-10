@@ -1,155 +1,110 @@
 'use client';
 import { useState, useEffect } from 'react';
-// Step back 3 levels to exit (protected)/transactions/ and enter lib/
 import { supabase } from '../../../lib/supabaseClient';
 import { formatCurrency } from '../../../lib/utils';
 import { autoCategorize } from '../../../lib/categorizationEngine';
+import CSVUploadZone from '../../components/CSVUploadZone';
 
-// Step back 2 levels to exit (protected)/transactions/ and enter components/
-import CSVUploadZone from '../../components/CSVUploadZone';  
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  // Load transactions and categories from Supabase
-  const fetchData = async () => {
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  async function fetchTransactions() {
     try {
       setLoading(true);
-      
-      // Fetch categories first for reference mapping
-      const { data: catData } = await supabase.from('categories').select('*');
-      setCategories(catData || []);
-
-      // Fetch transactions ordered by date
-      const { data: txData, error } = await supabase
+      const { data, error } = await supabase
         .from('transactions')
-        .select('*, categories(name, color)')
-        .order('transaction_date', { ascending: false });
+        .select('*')
+        .order('date', { ascending: false });
 
       if (error) throw error;
-      setTransactions(txData || []);
+      setTransactions(data || []);
     } catch (err) {
-      console.error('Error fetching data ledger:', err);
+      console.error('Error fetching data arrays:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Process and upload parsed CSV data arrays
-  const handleCSVDataLoaded = async (parsedData) => {
+  const handleCSVDataLoaded = async (parsedRows) => {
     try {
       setUploading(true);
-      
-      // Get current authenticating user info
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user instance identified.');
-
-      // Map rows into our Postgres schema format
-      const formattedTransactions = parsedData.map(row => {
-        const description = row.description || row.Description || '';
+      // Run deterministic cleaning engine matches client-side
+      const processedRows = parsedRows.map(row => {
+        const description = row.description || row.Description || 'Unknown Transaction';
         const amount = parseFloat(row.amount || row.Amount || 0);
-        const type = (row.type || row.Type || 'expense').toLowerCase().trim();
-        const rawDate = row.date || row.Date;
+        const type = amount >= 0 ? 'income' : 'expense';
         
-        // Format date cleanly into YYYY-MM-DD
-        const transaction_date = new Date(rawDate).toISOString().split('T')[0];
-
-        // Run client-side rule engine to auto-assign a category ID
-        const category_id = type === 'expense' ? autoCategorize(description, categories) : null;
-
         return {
-          user_id: user.id,
           description,
           amount: Math.abs(amount),
-          type: type === 'income' ? 'income' : 'expense',
-          transaction_date,
-          category_id,
-          source: 'csv_import'
+          type,
+          date: row.date || row.Date || new Date().toISOString().split('T')[0],
+          category_id: autoCategorize(description)
         };
       });
 
-      // Filter out invalid transactions
-      const validPayload = formattedTransactions.filter(t => t.description && t.amount !== 0);
-
-      if (validPayload.length === 0) return;
-
-      // Bulk insert array directly into Supabase via a single networking handshake
-      const { error } = await supabase.from('transactions').insert(validPayload);
+      const { error } = await supabase.from('transactions').insert(processedRows);
       if (error) throw error;
-
-      // Refresh data layers
-      await fetchData();
+      
+      await fetchTransactions();
     } catch (err) {
-      alert(`CSV Processing Exception: ${err.message}`);
+      alert(`Upload processing failed: ${err.message}`);
     } finally {
       setUploading(false);
     }
   };
 
   if (loading) {
-    return <div className="text-center text-slate-500 mt-20 animate-pulse">Hydrating relational data records...</div>;
+    return (
+      <div className="flex h-[50vh] items-center justify-center text-sm font-medium text-slate-500">
+        Syncing transaction ledger indexes...
+      </div>
+    );
   }
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between justify-start gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Transactions Ledger</h1>
-          <p className="text-sm text-slate-500 mt-1">Review ledger histories or upload structural CSV exports directly.</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Transaction Ledger</h1>
+        <p className="text-sm text-slate-500 mt-1">Import, classify, and isolate capital flows.</p>
       </div>
 
-      {/* CSV Handlers Drag Drop Zone */}
-      <div className="max-w-xl">
+      <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+        <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Statement Ingestion</h3>
         <CSVUploadZone onDataLoaded={handleCSVDataLoaded} />
-        {uploading && <p className="text-xs text-indigo-600 font-medium animate-pulse mt-2">Executing bulk SQL transaction inserts...</p>}
+        {uploading && <p className="text-xs text-indigo-600 font-medium animate-pulse mt-2">Writing rows to cloud database...</p>}
       </div>
 
-      {/* Tabular Data View */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      {/* Ledger Records Table */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400">
               <th className="p-4">Date</th>
               <th className="p-4">Description</th>
-              <th className="p-4">Category</th>
               <th className="p-4 text-right">Amount</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+          <tbody className="text-sm divide-y divide-slate-100">
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan="4" className="p-8 text-center text-slate-400 text-xs font-medium">
-                  No records stored inside current user context table. Upload a test CSV to start tracking.
+                <td colSpan="3" className="p-8 text-center text-slate-400 text-xs font-medium">
+                  No active transaction entries populated in this vault ledger.
                 </td>
               </tr>
             ) : (
-              transactions.map((tx) => (
-                <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-4 whitespace-nowrap text-xs text-slate-500">{tx.transaction_date}</td>
-                  <td className="p-4 font-medium text-slate-800">{tx.description}</td>
-                  <td className="p-4">
-                    {tx.type === 'income' ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700">
-                        Inflow Income
-                      </span>
-                    ) : (
-                      <span 
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
-                        style={{ backgroundColor: tx.categories?.color || '#94a3b8' }}
-                      >
-                        {tx.categories?.name || 'Uncategorized'}
-                      </span>
-                    )}
-                  </td>
-                  <td className={`p-4 text-right font-semibold ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-900'}`}>
-                    {tx.type === 'income' ? '+' : '-'} {formatCurrency(tx.amount)}
+              transactions.map((t) => (
+                <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="p-4 text-slate-500 font-mono text-xs">{t.date}</td>
+                  <td className="p-4 font-medium text-slate-800">{t.description}</td>
+                  <td className={`p-4 text-right font-bold ${t.type === 'income' ? 'text-emerald-600' : 'text-slate-900'}`}>
+                    {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                   </td>
                 </tr>
               ))

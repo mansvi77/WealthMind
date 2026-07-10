@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 // Step back 3 levels to find root level lib folder
-import { supabase } from '../../../lib/supabaseClient'; 
+import { supabase } from '../../lib/supabaseClient';
 
 
 const navigation = [
