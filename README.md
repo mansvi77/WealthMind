@@ -41,13 +41,49 @@ To protect infrastructure credentials from malicious bot scraping networks, **ne
 Ensure your root level `.gitignore` file contains the following declaration lines before pushing any code to GitHub:
 
 ```env
-# Local environment configuration variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# 🧠 WealthMind | Financial Command Center
 
-# Next.js build caching layers
-.next/
-out/
+> A privacy-first, deterministic financial analytics ledger engine built with **Next.js 16 (App Router)**, **Tailwind CSS v4**, and **Supabase**.
+
+[![Next.js](https://img.shields.io/badge/Next.js-16.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-06B6D4?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Database-3FCF8E?style=flat-square&logo=supabase)](https://supabase.com/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+
+---
+
+## 🌟 Key Features
+
+* 📊 **Financial Command Center:** Real-time client-side calculation of **Total Capital Inflow**, **Total Capital Outflow**, and **Net Runway Capital**.
+* 📁 **CSV Statement Ingestion:** Drag-and-drop bank CSV parser with self-healing schema mapping and client-side normalization.
+* 🏷️ **Deterministic Auto-Categorization:** Linear $O(N)$ regex cleaning engine for zero-cost, private expenditure classification without high-latency LLM API dependencies.
+* 🔄 **Algorithmic Recurring Spend Detection:** Low standard-deviation sequence loop analysis to isolate active recurring subscriptions (e.g., Netflix, Spotify).
+* 🛡️ **Postgres & Row-Level Security:** Isolated database architecture powered by Supabase PostgreSQL.
+* 🎨 **Modern UI Architecture:** Glassmorphism dashboard cards, custom dark/light theme tokens, and dynamic category pie chart visualizations.
+
+---
+
+## 🛠️ Architecture Overview
+
+```text
+       +-----------------------+
+       |   Bank CSV Statement   |
+       +-----------+-----------+
+                   |
+                   v
+       +-----------------------+
+       | Client-Side Ingestion |  (PapaParse / Regex Normalization)
+       +-----------+-----------+
+                   |
+                   v
+       +-----------------------+
+       | Categorization Engine |  (O(N) Regex Matchers)
+       +-----------+-----------+
+                   |
+         +---------+---------+
+         |                   |
+         v                   v
++-----------------+ +-------------------+
+|  Supabase DB    | | Client Analytics  |
+|  (PostgreSQL)   | |  (Recharts / UI)  |
++-----------------+ +-------------------+
