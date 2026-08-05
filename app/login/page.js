@@ -15,7 +15,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Attempt Supabase authentication
       await supabase.auth.signInWithPassword({
         email,
         password,
@@ -23,7 +22,6 @@ export default function LoginPage() {
     } catch (err) {
       console.warn('Development Bypass Active:', err);
     } finally {
-      // Force immediate access to dashboard regardless of auth errors in dev
       setLoading(false);
       router.push('/dashboard');
       router.refresh();
@@ -32,11 +30,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 relative overflow-hidden">
-      {/* Decorative ambient background glows */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-900/20 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-900/20 blur-[100px] pointer-events-none" />
 
-      {/* Glassmorphic login card */}
       <div className="w-full max-w-md space-y-8 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-8 rounded-3xl shadow-2xl relative z-10">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-400 shadow-lg shadow-indigo-500/10 text-3xl">
