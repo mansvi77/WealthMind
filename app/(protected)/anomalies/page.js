@@ -1,7 +1,8 @@
 'use client';
+
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabaseClient';
-import { formatCurrency } from '../../../lib/utils';
+import { supabase } from '@/lib/supabaseClient';
+import { calculateAnomalies } from '@/lib/stats/zscore';
 
 export default function AnomalyRadarPage() {
   const [anomalies, setAnomalies] = useState([]);
@@ -23,32 +24,16 @@ export default function AnomalyRadarPage() {
       }
 
       if (transactions && transactions.length > 0) {
-        const expenses = transactions.filter((t) => t.type === 'expense');
-        const amounts = expenses.map((t) => parseFloat(t.amount || 0));
+        // Delegate calculation to our single source of truth in /lib/stats/zscore.js
+        const flagged = calculateAnomalies(transactions, 1.8);
+        
+        // Enrich with percentage above mean for the UI view
+        const enriched = flagged.map((t) => {
+          const percentAbove = t.mean > 0 ? Math.round(((t.amount - t.mean) / t.mean) * 100) : 0;
+          return { ...t, percentAbove };
+        });
 
-        if (amounts.length === 0) {
-          setAnomalies([]);
-          return;
-        }
-
-        // Statistical Calculations (Mean & Standard Deviation)
-        const mean = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-        const variance = amounts.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / amounts.length;
-        const stdDev = Math.sqrt(variance);
-
-        // Flag transactions with Z-Score > 1.8
-        const flagged = expenses
-          .map((t) => {
-            const amt = parseFloat(t.amount || 0);
-            const zScore = stdDev > 0 ? (amt - mean) / stdDev : 0;
-            const percentAbove = mean > 0 ? Math.round(((amt - mean) / mean) * 100) : 0;
-
-            return { ...t, zScore, percentAbove, mean };
-          })
-          .filter((t) => t.zScore > 1.8)
-          .sort((a, b) => b.zScore - a.zScore);
-
-        setAnomalies(flagged);
+        setAnomalies(enriched);
       }
     } catch (err) {
       console.error('Error calculating anomalies:', err);
@@ -75,7 +60,7 @@ export default function AnomalyRadarPage() {
           Statistical Anomaly Radar
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Automated outlier detection using rolling standard deviation & Z-Score metrics ($Z &gt; 1.8$).
+          Automated outlier detection using rolling standard deviation &amp; Z-Score metrics ($Z &gt; 1.8$).
         </p>
       </div>
 
@@ -93,19 +78,19 @@ export default function AnomalyRadarPage() {
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
-                    Z-SCORE: +{t.zScore.toFixed(2)}
+                    Z-SCORE: +{t.zScore}
                   </span>
                   <span className="text-xs font-mono text-slate-400">{t.transaction_date || t.date}</span>
                 </div>
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base">{t.description}</h3>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base">{t.description || t.merchant}</h3>
                 <p className="text-xs text-slate-500">
-                  Transaction is <span className="text-rose-500 font-semibold">+{t.percentAbove}%</span> above your baseline average ({formatCurrency ? formatCurrency(t.mean) : `₹${Math.round(t.mean)}`}).
+                  Transaction is <span className="text-rose-500 font-semibold">+{t.percentAbove}%</span> above your baseline average (₹{Math.round(t.mean)}).
                 </p>
               </div>
 
               <div className="text-right">
                 <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
-                  {formatCurrency ? formatCurrency(t.amount) : `₹${t.amount}`}
+                  ₹{t.amount}
                 </div>
               </div>
             </div>

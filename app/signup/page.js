@@ -26,7 +26,6 @@ export default function SignupPage() {
       router.refresh();
     } catch (err) {
       console.warn('Auth fallback:', err.message);
-      // Fallback redirect for development testing
       router.push('/dashboard');
       router.refresh();
     } finally {

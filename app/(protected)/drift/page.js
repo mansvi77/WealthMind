@@ -1,17 +1,19 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { formatCurrency } from '../../../lib/utils';
+import { calculateDrift } from '../../../lib/stats/drift';
 
 export default function ExpenseDriftPage() {
   const [driftData, setDriftData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    calculateExpenseDrift();
+    loadExpenseDrift();
   }, []);
 
-  async function calculateExpenseDrift() {
+  async function loadExpenseDrift() {
     try {
       setLoading(true);
       const { data: transactions, error } = await supabase
@@ -21,50 +23,18 @@ export default function ExpenseDriftPage() {
       if (error) throw error;
 
       if (transactions && transactions.length > 0) {
-        // Group expenses by category
-        const categoryMonthlyMap = {};
-
-        transactions
+        // Filter expenses and normalize fields for the drift library engine
+        const expenses = transactions
           .filter((t) => t.type === 'expense')
-          .forEach((t) => {
-            const cat = t.category || 'General';
-            const dateStr = t.transaction_date || t.date || new Date().toISOString();
-            const monthKey = dateStr.substring(0, 7); // e.g. "2026-06"
-            const amt = parseFloat(t.amount || 0);
+          .map((t) => ({
+            ...t,
+            amount: parseFloat(t.amount || 0),
+            category: t.category || 'General',
+            date: t.transaction_date || t.date || new Date().toISOString().slice(0, 10),
+          }));
 
-            if (!categoryMonthlyMap[cat]) categoryMonthlyMap[cat] = {};
-            categoryMonthlyMap[cat][monthKey] = (categoryMonthlyMap[cat][monthKey] || 0) + amt;
-          });
-
-        // Compute linear drift (slope analysis) for each category
-        const calculatedDrift = Object.keys(categoryMonthlyMap).map((cat) => {
-          const months = Object.keys(categoryMonthlyMap[cat]).sort();
-          const values = months.map((m) => categoryMonthlyMap[cat][m]);
-
-          let slope = 0;
-          let percentChange = 0;
-
-          if (values.length > 1) {
-            const first = values[0];
-            const last = values[values.length - 1];
-            slope = (last - first) / (values.length - 1);
-            percentChange = first > 0 ? Math.round(((last - first) / first) * 100) : 0;
-          }
-
-          const totalSpend = values.reduce((a, b) => a + b, 0);
-
-          return {
-            category: cat,
-            monthsCount: values.length,
-            latestSpend: values[values.length - 1] || totalSpend,
-            totalSpend,
-            slope,
-            percentChange,
-          };
-        });
-
-        // Sort by highest accelerating spending drift
-        calculatedDrift.sort((a, b) => b.slope - a.slope);
+        // Delegate calculations to the centralized statistical library
+        const calculatedDrift = calculateDrift(expenses);
         setDriftData(calculatedDrift);
       }
     } catch (err) {
@@ -89,7 +59,7 @@ export default function ExpenseDriftPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
-          Expense Drift & Lifestyle Creep Engine
+          Expense Drift &amp; Lifestyle Creep Engine
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
           Detect Month-over-Month expenditure velocity ($\beta$ slope trajectory) before capital depletion.
@@ -106,7 +76,7 @@ export default function ExpenseDriftPage() {
             let statusBadge = 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
             let statusText = 'STABLE SPEND';
 
-            if (item.slope > 500 || item.percentChange > 20) {
+            if (item.slope > 500 || item.percentageChange > 20) {
               statusBadge = 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 animate-pulse';
               statusText = 'ESCALATING DRIFT';
             } else if (item.slope > 0) {
@@ -125,14 +95,14 @@ export default function ExpenseDriftPage() {
                       {statusText}
                     </span>
                     <span className="text-xs font-mono text-slate-400">
-                      {item.monthsCount} Cycle{item.monthsCount > 1 ? 's' : ''} Analyzed
+                      {item.monthsTracked} Cycle{item.monthsTracked > 1 ? 's' : ''} Analyzed
                     </span>
                   </div>
                   <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg">{item.category}</h3>
                   <p className="text-xs text-slate-500">
                     Expenditure slope trajectory is drifting by{' '}
                     <span className={item.slope > 0 ? 'text-rose-500 font-semibold' : 'text-emerald-500 font-semibold'}>
-                      {item.slope > 0 ? '+' : ''}₹{Math.round(item.slope)}/cycle ({item.percentChange > 0 ? '+' : ''}{item.percentChange}%)
+                      {item.slope > 0 ? '+' : ''}₹{Math.round(item.slope)}/cycle ({item.percentageChange > 0 ? '+' : ''}{item.percentageChange}%)
                     </span>.
                   </p>
                 </div>
@@ -140,7 +110,7 @@ export default function ExpenseDriftPage() {
                 <div className="text-right">
                   <p className="text-xs text-slate-400 font-medium">Recent Spend</p>
                   <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                    {formatCurrency ? formatCurrency(item.latestSpend) : `₹${item.latestSpend}`}
+                    {formatCurrency ? formatCurrency(item.recentSpend) : `₹${item.recentSpend}`}
                   </div>
                 </div>
               </div>

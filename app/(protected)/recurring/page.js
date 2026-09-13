@@ -1,8 +1,8 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { formatCurrency } from '../../../lib/utils';
-// Use exact named import match
 import { detectRecurringPatterns } from '../../../lib/recurringDetector';
 
 export default function RecurringPage() {
@@ -28,8 +28,15 @@ export default function RecurringPage() {
       }
 
       if (transactions && transactions.length > 0) {
+        const normalizedTransactions = transactions.map((t) => ({
+          ...t,
+          amount: parseFloat(t.amount || 0),
+          date: t.date || t.transaction_date || new Date().toISOString().slice(0, 10),
+          merchant: t.merchant || t.description || 'Unknown Merchant',
+        }));
+
         const detected = typeof detectRecurringPatterns === 'function' 
-          ? detectRecurringPatterns(transactions) 
+          ? detectRecurringPatterns(normalizedTransactions) 
           : [];
         setRecurringSubscriptions(detected || []);
       } else {
@@ -75,27 +82,33 @@ export default function RecurringPage() {
             <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-400">
               <th className="p-4">Subscription Merchant</th>
               <th className="p-4">Frequency</th>
-              <th className="p-4 text-right">Est. Monthly Cost</th>
+              <th className="p-4">Estimated Amount</th>
+              <th className="p-4 text-right">Confidence</th>
             </tr>
           </thead>
-          <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
             {recurringSubscriptions.length === 0 ? (
               <tr>
-                <td colSpan="3" className="p-8 text-center text-slate-400 text-xs font-medium">
-                  No repeating transaction loops identified across current dataset.
+                <td colSpan="4" className="p-8 text-center text-slate-400 text-sm">
+                  ✅ No recurring subscription patterns detected across current transaction logs.
                 </td>
               </tr>
             ) : (
-              recurringSubscriptions.map((item, index) => (
-                <tr key={index} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">{item.merchant || item.description}</td>
-                  <td className="p-4 text-slate-500 text-xs font-medium">
-                    <span className="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-semibold">
-                      {item.frequency || 'Monthly'}
-                    </span>
+              recurringSubscriptions.map((sub, idx) => (
+                <tr key={sub.merchant || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                  <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">
+                    {sub.merchant}
                   </td>
-                  <td className="p-4 text-right font-bold text-slate-900 dark:text-slate-100">
-                    {formatCurrency(item.amount)}
+                  <td className="p-4 text-slate-600 dark:text-slate-400 capitalize">
+                    {sub.frequency || 'Monthly'}
+                  </td>
+                  <td className="p-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    {formatCurrency ? formatCurrency(sub.amount) : `₹${sub.amount}`}
+                  </td>
+                  <td className="p-4 text-right">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                      {Math.round((sub.confidence || 0.9) * 100)}% MATCH
+                    </span>
                   </td>
                 </tr>
               ))

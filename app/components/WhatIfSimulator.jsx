@@ -5,12 +5,11 @@ export default function WhatIfSimulator() {
   const [monthlyExpense, setMonthlyExpense] = useState(7500);
   const [reductionPercent, setReductionPercent] = useState(50);
   const [years, setYears] = useState(20);
-  const returnRate = 0.12; // 12% annual CAGR
+  const returnRate = 0.12; 
 
   const monthlySavings = monthlyExpense * (reductionPercent / 100);
   const annualSavings = monthlySavings * 12;
 
-  // Compound Interest Calculation (Future Value of Annuity)
   const monthlyRate = returnRate / 12;
   const totalMonths = years * 12;
   const futureValue = monthlySavings > 0
@@ -29,7 +28,6 @@ export default function WhatIfSimulator() {
         </p>
       </div>
 
-      {/* Interactive Sliders */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
         <div>
           <label className="text-xs text-indigo-300 font-semibold block mb-1">
@@ -62,7 +60,6 @@ export default function WhatIfSimulator() {
         </div>
       </div>
 
-      {/* Simulation Results Display */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
         <div className="bg-indigo-950/80 p-3.5 rounded-xl border border-indigo-800/50">
           <p className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">Monthly Savings</p>
