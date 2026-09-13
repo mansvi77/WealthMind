@@ -1,9 +1,11 @@
 'use client';
+
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 import { autoCategorize } from '@/lib/categorizationEngine';
 
 export default function TransactionsPage() {
+  const supabase = createClient();
   const [uploading, setUploading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,83 +33,82 @@ export default function TransactionsPage() {
     fetchTransactions();
   }, []);
 
-  const handleCSVDataLoaded = async (parsedRows) => {
-    try {
-      setUploading(true);
-
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      let currentUserId = sessionData?.session?.user?.id;
-      if (sessionError || !currentUserId) {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user?.id) {
-          throw new Error('Auth session missing! Please log in again.');
-        }
-        currentUserId = userData.user.id;
-      }
-
-      const processedRows = parsedRows.map((row) => {
-        const description = row.description || row.Description || 'Unknown Transaction';
-        const rawAmount = parseFloat(row.amount || row.Amount || 0);
-        const amount = Math.abs(rawAmount);
-        const type = rawAmount >= 0 ? 'income' : 'expense';
-        const dateVal = row.date || row.Date || new Date().toISOString().split('T')[0];
-        const category = autoCategorize(description);
-
-        return {
-          description,
-          amount,
-          type,
-          category,
-          transaction_date: dateVal,
-          user_id: currentUserId,
-        };
-      });
-
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert(processedRows)
-        .select();
-
-      if (error) {
-        throw new Error(`Database insert failed: ${error.message}`);
-      }
-
-      await fetchTransactions();
-      alert(`Successfully imported ${processedRows.length} transactions!`);
-    } catch (err) {
-      console.error('CSV UPLOAD FAILED:', err);
-      alert(`Upload failed: ${err.message}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFileUpload = (event) => {
+  const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
+    // Temporary test user ID override for local development and CSV population
+    let userId = '00000000-0000-0000-0000-000000000000'; 
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      userId = session.user.id;
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        userId = user.id;
+      }
+    }
+
     const reader = new FileReader();
     reader.onload = async (e) => {
-      const text = e.target.result;
-      const lines = text.split('\n').filter(Boolean);
-      if (lines.length < 2) {
-        alert('CSV file is empty or missing headers.');
-        return;
-      }
+      try {
+        setUploading(true);
+        const text = e.target.result;
+        const lines = text.split('\n').filter(Boolean);
+        if (lines.length < 2) {
+          alert('CSV file is empty or missing headers.');
+          setUploading(false);
+          return;
+        }
 
-      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-      
-      const parsedRows = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-        let obj = {};
-        headers.forEach((h, idx) => {
-          obj[h] = values[idx] || '';
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        
+        const parsedRows = lines.slice(1).map(line => {
+          const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+          let obj = {};
+          headers.forEach((h, idx) => {
+            obj[h] = values[idx] || '';
+          });
+          return obj;
         });
-        return obj;
-      });
 
-      await handleCSVDataLoaded(parsedRows);
+        const processedRows = parsedRows.map((row) => {
+          const description = row.description || row.Description || 'Unknown Transaction';
+          const rawAmount = parseFloat(row.amount || row.Amount || 0);
+          const amount = Math.abs(rawAmount);
+          const type = rawAmount >= 0 ? 'income' : 'expense';
+          const dateVal = row.date || row.Date || new Date().toISOString().split('T')[0];
+          const category = typeof autoCategorize === 'function' ? autoCategorize(description) : 'General';
+
+          return {
+            description,
+            amount,
+            type,
+            category,
+            transaction_date: dateVal,
+            user_id: userId,
+          };
+        });
+
+        const { error } = await supabase
+          .from('transactions')
+          .insert(processedRows)
+          .select();
+
+        if (error) {
+          throw new Error(`Database insert failed: ${error.message}`);
+        }
+
+        await fetchTransactions();
+        alert(`Successfully imported ${processedRows.length} transactions!`);
+      } catch (err) {
+        console.error('CSV UPLOAD FAILED:', err);
+        alert(`Upload failed: ${err.message}`);
+      } finally {
+        setUploading(false);
+        event.target.value = '';
+      }
     };
     reader.readAsText(file);
   };

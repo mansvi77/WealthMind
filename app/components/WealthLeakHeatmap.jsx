@@ -1,66 +1,75 @@
 'use client';
 
-export default function WealthLeakHeatmap({ categoryMap = {} }) {
-  const categories = Object.entries(categoryMap)
-    .filter(([_, amount]) => amount > 0)
-    .sort((a, b) => b[1] - a[1]);
+import { useMemo } from 'react';
+import { Flame } from 'lucide-react';
 
-  const maxAmount = categories.length > 0 ? categories[0][1] : 1;
+export default function WealthLeakHeatmap({ categoryMap = {} }) {
+  const categories = useMemo(() => {
+    const entries = Object.entries(categoryMap);
+    if (entries.length === 0) return [];
+    
+    const maxAmount = Math.max(...entries.map(([_, amt]) => amt), 1);
+
+    return entries
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        intensity: amount / maxAmount,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [categoryMap]);
+
+  if (categories.length === 0) {
+    return (
+      <div className="py-12 text-center text-slate-500 text-sm">
+        No expense category data available for intensity mapping.
+      </div>
+    );
+  }
+
+  const getIntensityColor = (intensity) => {
+    if (intensity > 0.75) return 'bg-rose-600/20 border-rose-500/40 text-rose-300';
+    if (intensity > 0.4) return 'bg-amber-600/20 border-amber-500/40 text-amber-300';
+    if (intensity > 0.15) return 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300';
+    return 'bg-slate-800/60 border-slate-700/50 text-slate-300';
+  };
+
+  const getBadgeColor = (intensity) => {
+    if (intensity > 0.75) return 'bg-rose-500 text-white';
+    if (intensity > 0.4) return 'bg-amber-500 text-slate-950';
+    if (intensity > 0.15) return 'bg-indigo-500 text-white';
+    return 'bg-slate-700 text-slate-300';
+  };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
-      <div>
-        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 tracking-tight flex items-center gap-2">
-          🔥 Wealth Leak Heatmap
-        </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Identifies high-volume expenditure channels draining net capital.
-        </p>
+    <div className="w-full space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2 text-rose-400">
+          <Flame className="w-4 h-4" />
+          <span className="text-xs font-semibold tracking-wider uppercase text-slate-400">Relative Spending Intensity</span>
+        </div>
+        <span className="text-[11px] text-slate-500">{categories.length} Categories Analyzed</span>
       </div>
 
-      <div className="space-y-4">
-        {categories.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-4">No spend leaks identified.</p>
-        ) : (
-          categories.map(([category, amount]) => {
-            const ratio = amount / maxAmount;
-            
-            // Color thresholds
-            let barColor = 'bg-emerald-500';
-            let badgeText = 'Healthy';
-            let badgeColor = 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50';
-
-            if (ratio > 0.6) {
-              barColor = 'bg-rose-500';
-              badgeText = 'Dangerous';
-              badgeColor = 'text-rose-500 bg-rose-50 dark:bg-rose-950/50';
-            } else if (ratio > 0.3) {
-              barColor = 'bg-amber-500';
-              badgeText = 'Moderate';
-              badgeColor = 'text-amber-500 bg-amber-50 dark:bg-amber-950/50';
-            }
-
-            return (
-              <div key={category} className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs font-semibold">
-                  <span className="text-slate-700 dark:text-slate-300">{category}</span>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-mono text-slate-500 dark:text-slate-400">₹{amount.toLocaleString()}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}`}>
-                      {badgeText}
-                    </span>
-                  </div>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                    style={{ width: `${Math.max(ratio * 100, 5)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })
-        )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {categories.map((cat) => (
+          <div
+            key={cat.name}
+            className={`p-4 rounded-xl border transition-all duration-200 flex items-center justify-between shadow-sm ${getIntensityColor(
+              cat.intensity
+            )}`}
+          >
+            <div className="space-y-1">
+              <span className="text-sm font-semibold tracking-tight text-slate-200 block">{cat.name}</span>
+              <span className="text-xs font-bold text-slate-100">₹{cat.amount.toLocaleString()}</span>
+            </div>
+            <div className="text-right">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getBadgeColor(cat.intensity)}`}>
+                {Math.round(cat.intensity * 100)}% Intensity
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

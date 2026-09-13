@@ -1,81 +1,125 @@
 'use client';
+
 import { useState } from 'react';
+import { SlidersHorizontal, ArrowUpRight } from 'lucide-react';
 
 export default function WhatIfSimulator() {
-  const [monthlyExpense, setMonthlyExpense] = useState(7500);
-  const [reductionPercent, setReductionPercent] = useState(50);
-  const [years, setYears] = useState(20);
-  const returnRate = 0.12; 
+  const [monthlyDiscretionary, setMonthlyDiscretionary] = useState(15000);
+  const [reductionPercent, setReductionPercent] = useState(20);
+  const [years, setYears] = useState(5);
+  const [assumedReturnRate, setAssumedReturnRate] = useState(8);
 
-  const monthlySavings = monthlyExpense * (reductionPercent / 100);
+  const monthlySavings = (monthlyDiscretionary * (reductionPercent / 100));
   const annualSavings = monthlySavings * 12;
 
-  const monthlyRate = returnRate / 12;
-  const totalMonths = years * 12;
-  const futureValue = monthlySavings > 0
-    ? monthlySavings * (((1 + monthlyRate) ** totalMonths - 1) / monthlyRate)
-    : 0;
+  // Future value of a monthly annuity formula: FV = P * [((1 + r/12)^(n*12) - 1) / (r/12)]
+  const calculateFutureValue = () => {
+    const r = assumedReturnRate / 100;
+    const months = years * 12;
+    const monthlyRate = r / 12;
+    let fv = 0;
+    for (let i = 0; i < months; i++) {
+      fv = (fv + monthlySavings) * (1 + monthlyRate);
+    }
+    return Math.round(fv);
+  };
+
+  const projectedTotal = calculateFutureValue();
+  const totalContributed = Math.round(annualSavings * years);
+  const estimatedInterest = Math.max(0, projectedTotal - totalContributed);
 
   return (
-    <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-lg border border-indigo-500/30 space-y-6">
-      <div>
-        <div className="flex items-center space-x-2">
-          <span className="text-xl">🚀</span>
-          <h3 className="font-extrabold text-lg tracking-tight">Smart "What If" Simulator</h3>
-        </div>
-        <p className="text-xs text-indigo-200 mt-1">
-          Simulate how curbing discretionary spend creates generational wealth via compound interest.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Controls */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-slate-400 block mb-1.5">
+              Current Monthly Discretionary Spend (₹): <span className="text-slate-100 font-semibold">{monthlyDiscretionary.toLocaleString()}</span>
+            </label>
+            <input
+              type="range"
+              min="2000"
+              max="100000"
+              step="1000"
+              value={monthlyDiscretionary}
+              onChange={(e) => setMonthlyDiscretionary(Number(e.target.value))}
+              className="w-full accent-indigo-600 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
-        <div>
-          <label className="text-xs text-indigo-300 font-semibold block mb-1">
-            Monthly Discretionary Expense: ₹{monthlyExpense.toLocaleString()}
-          </label>
-          <input
-            type="range"
-            min="1000"
-            max="30000"
-            step="500"
-            value={monthlyExpense}
-            onChange={(e) => setMonthlyExpense(Number(e.target.value))}
-            className="w-full accent-indigo-400 cursor-pointer"
-          />
+          <div>
+            <label className="text-xs font-medium text-slate-400 block mb-1.5">
+              Target Reduction Percentage: <span className="text-indigo-400 font-semibold">{reductionPercent}%</span>
+            </label>
+            <input
+              type="range"
+              min="5"
+              max="60"
+              step="5"
+              value={reductionPercent}
+              onChange={(e) => setReductionPercent(Number(e.target.value))}
+              className="w-full accent-indigo-600 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-slate-400 block mb-1.5">
+              Investment Horizon: <span className="text-slate-100 font-semibold">{years} Years</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="25"
+              step="1"
+              value={years}
+              onChange={(e) => setYears(Number(e.target.value))}
+              className="w-full accent-indigo-600 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-slate-400 block mb-1.5">
+              Illustrative Annual Return Rate: <span className="text-cyan-400 font-semibold">{assumedReturnRate}%</span>
+            </label>
+            <input
+              type="range"
+              min="4"
+              max="18"
+              step="1"
+              value={assumedReturnRate}
+              onChange={(e) => setAssumedReturnRate(Number(e.target.value))}
+              className="w-full accent-cyan-600 bg-slate-800 rounded-lg cursor-pointer"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="text-xs text-indigo-300 font-semibold block mb-1">
-            Cut Spend By: {reductionPercent}%
-          </label>
-          <input
-            type="range"
-            min="10"
-            max="100"
-            step="10"
-            value={reductionPercent}
-            onChange={(e) => setReductionPercent(Number(e.target.value))}
-            className="w-full accent-indigo-400 cursor-pointer"
-          />
-        </div>
-      </div>
+        {/* Results Card */}
+        <div className="bg-slate-950/80 border border-slate-800/80 p-6 rounded-2xl flex flex-col justify-between space-y-4">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Illustrative Projection</span>
+            <div className="mt-2">
+              <h3 className="text-3xl font-bold text-emerald-400">₹{projectedTotal.toLocaleString()}</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                By cutting discretionary spending by <span className="text-indigo-400 font-semibold">{reductionPercent}%</span> (₹{Math.round(monthlySavings).toLocaleString()}/month) over {years} years.
+              </p>
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-        <div className="bg-indigo-950/80 p-3.5 rounded-xl border border-indigo-800/50">
-          <p className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">Monthly Savings</p>
-          <p className="text-xl font-extrabold text-emerald-400 mt-1">₹{monthlySavings.toLocaleString()}</p>
-        </div>
+          <div className="space-y-2 pt-4 border-t border-slate-800/80 text-xs">
+            <div className="flex justify-between text-slate-300">
+              <span className="text-slate-400">Total Capital Contributed:</span>
+              <span className="font-semibold">₹{totalContributed.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-slate-300">
+              <span className="text-slate-400">Estimated Compounded Returns:</span>
+              <span className="font-semibold text-cyan-400">₹{estimatedInterest.toLocaleString()}</span>
+            </div>
+          </div>
 
-        <div className="bg-indigo-950/80 p-3.5 rounded-xl border border-indigo-800/50">
-          <p className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">Annual Capital Retained</p>
-          <p className="text-xl font-extrabold text-emerald-400 mt-1">₹{annualSavings.toLocaleString()}</p>
-        </div>
-
-        <div className="bg-indigo-950/80 p-3.5 rounded-xl border border-indigo-500/50">
-          <p className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">Invested @ 12% ({years} Yrs)</p>
-          <p className="text-xl font-extrabold text-indigo-300 mt-1">
-            ≈ ₹{(futureValue / 100000).toFixed(2)} Lakhs
-          </p>
+          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300">
+            * Note: Return rates are illustrative projections and not guaranteed financial returns.
+          </div>
         </div>
       </div>
     </div>
