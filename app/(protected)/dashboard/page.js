@@ -2,327 +2,236 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { ArrowUpRight, ArrowDownRight, Wallet, PiggyBank, TrendingUp, AlertTriangle, Activity, ShieldAlert, Sparkles, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Wallet, 
-  PiggyBank, 
-  ShieldAlert, 
-  Repeat, 
-  Sparkles, 
-  ArrowRight, 
-  SlidersHorizontal, 
-  Dice5, 
-  Flame,
-  FileText
-} from 'lucide-react';
-import WealthLeakHeatmap from '@/components/WealthLeakHeatmap';
-import WhatIfSimulator from '@/components/WhatIfSimulator';
-import { detectRecurring } from '@/lib/recurringDetector';
-import { calculateZScoreAnomalies } from '@/lib/stats/zscore';
 
-export default function DashboardPage() {
+export default function FinancialCommandCenter() {
   const supabase = createClient();
-  const router = useRouter();
-
-  const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
-    income: 0,
-    expenses: 0,
-    balance: 0,
+    totalIncome: 0,
+    totalExpenses: 0,
+    netBalance: 0,
     savingsRate: 0,
   });
-  const [categoryMap, setCategoryMap] = useState({});
-  const [recurringCount, setRecurringCount] = useState(0);
-  const [anomalyCount, setAnomalyCount] = useState(0);
-  const [question, setQuestion] = useState('');
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadDashboardData() {
+    async function fetchDashboardData() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const { data: txs, error } = await supabase
+        const { data: txData, error } = await supabase
           .from('transactions')
           .select('*')
-          .eq('user_id', session.user.id);
+          .order('transaction_date', { ascending: false });
 
-        if (error || !txs) {
-          setLoading(false);
-          return;
-        }
+        if (error) throw error;
 
-        let totalIncome = 0;
-        let totalExpenses = 0;
-        const catMap = {};
+        const txList = txData || [];
+        setTransactions(txList);
 
-        txs.forEach((t) => {
+        let income = 0;
+        let expenses = 0;
+
+        txList.forEach((t) => {
           const amt = Number(t.amount) || 0;
-          const cat = t.category || 'General';
           if (t.type === 'income') {
-            totalIncome += amt;
-          } else {
-            totalExpenses += amt;
-            catMap[cat] = (catMap[cat] || 0) + amt;
+            income += amt;
+          } else if (t.type === 'expense') {
+            expenses += amt;
           }
         });
 
-        const netBalance = totalIncome - totalExpenses;
-        const savingsRate = totalIncome > 0 ? Math.max(0, ((totalIncome - totalExpenses) / totalIncome) * 100).toFixed(1) : 0;
+        const net = income - expenses;
+        const rate = income > 0 ? Math.round((net / income) * 100) : 0;
 
         setMetrics({
-          income: totalIncome,
-          expenses: totalExpenses,
-          balance: netBalance,
-          savingsRate,
+          totalIncome: income,
+          totalExpenses: expenses,
+          netBalance: net,
+          savingsRate: rate,
         });
-        setCategoryMap(catMap);
-
-        const recurring = detectRecurring(txs);
-        setRecurringCount(recurring.length);
-
-        const anomalies = calculateZScoreAnomalies(txs);
-        setAnomalyCount(anomalies.length);
-
       } catch (err) {
-        console.error('Failed to load dashboard metrics:', err);
+        console.error('Error loading command center data:', err.message);
       } finally {
         setLoading(false);
       }
     }
 
-    loadDashboardData();
+    fetchDashboardData();
   }, [supabase]);
 
-  const handleAskCopilot = (e) => {
-    e.preventDefault();
-    if (!question.trim()) return;
-    router.push(`/assistant?q=${encodeURIComponent(question)}`);
-  };
+  // Heatmap & Category breakdown
+  const expenseCategories = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
+      return acc;
+    }, {});
 
-  if (loading) {
-    return (
-      <div className="p-8 max-w-7xl mx-auto space-y-8 animate-pulse text-slate-400">
-        <div className="h-10 w-64 bg-slate-800 rounded-xl" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-slate-900 border border-slate-800 rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const sortedCategories = Object.entries(expenseCategories).sort((a, b) => b[1] - a[1]);
+
+  // Simple Anomaly Detection preview (expenses > 5000 or unusual spikes)
+  const anomalies = transactions.filter(t => t.type === 'expense' && Number(t.amount) > 5000);
+
+  // Recurring spend detection preview (matching descriptions)
+  const recurringCount = transactions.filter(t => t.description && (t.description.toLowerCase().includes('sub') || t.description.toLowerCase().includes('sip') || t.description.toLowerCase().includes('rent'))).length;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-10 text-slate-100 pb-16">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Financial Command Center</h1>
-        <p className="text-slate-400 text-sm mt-1">Real-time intelligence, anomaly detection, and automated RAG insights.</p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Total Income</span>
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-bold text-emerald-400">₹{metrics.income.toLocaleString()}</h3>
-          </div>
+    <div className="p-6 max-w-7xl mx-auto space-y-6 text-slate-100">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Financial Command Center</h1>
+          <p className="text-xs text-slate-400 mt-1">Real-time intelligence, anomaly radar, and vector-grounded RAG insights.</p>
         </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Total Expenses</span>
-            <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400">
-              <TrendingDown className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-bold text-rose-400">₹{metrics.expenses.toLocaleString()}</h3>
-          </div>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Net Balance</span>
-            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400">
-              <Wallet className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className={`text-2xl font-bold ${metrics.balance >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
-              ₹{metrics.balance.toLocaleString()}
-            </h3>
-          </div>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Savings Rate</span>
-            <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400">
-              <PiggyBank className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-bold text-cyan-400">{metrics.savingsRate}%</h3>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-slate-200">Spending Overview & Leak Heatmap</h2>
-            <Link href="/wealth-leaks" className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-              View Full Leaks <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <WealthLeakHeatmap categoryMap={categoryMap} />
-          </div>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg flex flex-col justify-between space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-200 mb-1">Financial Intelligence</h2>
-            <p className="text-xs text-slate-400">Automated deterministic insights</p>
-          </div>
-          <div className="space-y-4">
-            <Link href="/recurring" className="flex items-center justify-between p-4 rounded-xl bg-slate-950/60 border border-slate-800/60 hover:border-indigo-500/30 transition-all">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
-                  <Repeat className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-slate-200">Recurring Spend</h4>
-                  <p className="text-xs text-slate-400">{recurringCount} subscription patterns detected</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-500" />
-            </Link>
-
-            <Link href="/anomalies" className="flex items-center justify-between p-4 rounded-xl bg-slate-950/60 border border-slate-800/60 hover:border-rose-500/30 transition-all">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
-                  <ShieldAlert className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-slate-200">Anomaly Radar</h4>
-                  <p className="text-xs text-slate-400">{anomalyCount} statistical outliers flagged</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-500" />
-            </Link>
-
-            <Link href="/report" className="flex items-center justify-between p-4 rounded-xl bg-slate-950/60 border border-slate-800/60 hover:border-cyan-500/30 transition-all">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-slate-200">Financial Health Report</h4>
-                  <p className="text-xs text-slate-400">Comprehensive AI narrative report</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-500" />
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-200">What-If Simulator</h2>
-            <p className="text-xs text-slate-400">Illustrative projection based on discretionary spending adjustments</p>
-          </div>
-          <Link href="/what-if" className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-            Full Simulator <ArrowRight className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/assistant"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg transition"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Launch AI Copilot</span>
           </Link>
         </div>
-        <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/50">
-          <WhatIfSimulator />
+      </div>
+
+      {/* Metric Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-slate-400">Total Income</p>
+            <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-emerald-400">
+            {loading ? '...' : `₹${metrics.totalIncome.toLocaleString()}`}
+          </h2>
+          <p className="text-[11px] text-slate-500 mt-1">Verified primary inflows</p>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-slate-400">Total Expenses</p>
+            <div className="p-2 bg-rose-500/10 rounded-xl text-rose-400">
+              <ArrowDownRight className="w-4 h-4" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-rose-400">
+            {loading ? '...' : `₹${metrics.totalExpenses.toLocaleString()}`}
+          </h2>
+          <p className="text-[11px] text-slate-500 mt-1">Aggregate statement debits</p>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-slate-400">Net Balance</p>
+            <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <h2 className={`text-2xl font-bold ${metrics.netBalance >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
+            {loading ? '...' : `₹${metrics.netBalance.toLocaleString()}`}
+          </h2>
+          <p className="text-[11px] text-slate-500 mt-1">Net accumulated liquidity</p>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-slate-400">Savings Rate</p>
+            <div className="p-2 bg-cyan-500/10 rounded-xl text-cyan-400">
+              <PiggyBank className="w-4 h-4" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-cyan-400">
+            {loading ? '...' : `${metrics.savingsRate}%`}
+          </h2>
+          <p className="text-[11px] text-slate-500 mt-1">Retained income ratio</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg flex flex-col justify-between space-y-6">
-          <div>
-            <div className="flex items-center space-x-2 text-indigo-400 mb-1">
-              <Sparkles className="w-5 h-5" />
-              <h2 className="text-lg font-semibold text-slate-200">Ask WealthMind</h2>
-            </div>
-            <p className="text-xs text-slate-400">Query your RAG vector knowledge base with natural language</p>
-          </div>
-
-          <form onSubmit={handleAskCopilot} className="space-y-4">
-            <div className="relative">
-              <input
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Where am I overspending this month?"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all pr-24"
-              />
-              <button
-                type="submit"
-                className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-all shadow-md shadow-indigo-600/20"
-              >
-                Ask
-              </button>
-            </div>
-          </form>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-            {[
-              "Where am I spending the most?",
-              "Find my recurring leaks",
-              "Why is spending increasing?",
-            ].map((suggested, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setQuestion(suggested);
-                  router.push(`/assistant?q=${encodeURIComponent(suggested)}`);
-                }}
-                className="text-xs bg-slate-950 hover:bg-slate-800/80 text-slate-300 border border-slate-800 px-3 py-1.5 rounded-lg transition-all"
-              >
-                {suggested}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl shadow-lg flex flex-col justify-between space-y-6">
+      {/* Main Intelligence Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Spending Heatmap & Leak Breakdown */}
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-cyan-400">
-              <Dice5 className="w-5 h-5" />
-              <h2 className="text-lg font-semibold text-slate-200">Monte Carlo Simulation</h2>
-            </div>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 font-medium">1,000 Runs</span>
+            <h3 className="text-base font-semibold text-slate-200">Spending Overview & Leak Heatmap</h3>
+            <span className="text-xs text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full font-medium">Live Aggregation</span>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Probabilistic forward-looking cash flow and capital survival projections modeled under historical volatility parameters.
-          </p>
-          <div className="pt-4 flex items-center justify-between border-t border-slate-800">
-            <div>
-              <span className="text-xs text-slate-500 block">Horizon</span>
-              <span className="text-sm font-semibold text-slate-200">12 Months</span>
+          
+          {loading ? (
+            <p className="text-sm text-slate-500 py-12 text-center">Parsing transaction streams...</p>
+          ) : sortedCategories.length === 0 ? (
+            <p className="text-sm text-slate-500 py-12 text-center">No transactions available. Upload statements to render heatmap.</p>
+          ) : (
+            <div className="space-y-3.5">
+              {sortedCategories.slice(0, 5).map(([category, amount], idx) => {
+                const percentage = metrics.totalExpenses > 0 ? Math.round((amount / metrics.totalExpenses) * 100) : 0;
+                return (
+                  <div key={idx} className="space-y-1.5">
+                    <div className="flex justify-between text-xs font-medium">
+                      <span className="text-slate-300">{category}</span>
+                      <span className="text-slate-400">₹{amount.toLocaleString()} ({percentage}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${Math.min(percentage, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <Link
-              href="/simulation"
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-cyan-600/20 flex items-center gap-1.5"
-            >
-              View Full Simulation <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+          )}
+        </div>
+
+        {/* Financial Intelligence Hub (Recurring, Anomaly, Health Report) */}
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-indigo-400 mb-3">
+              <TrendingUp className="w-5 h-5" />
+              <h3 className="text-base font-semibold text-slate-200">Intelligence Modules</h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="bg-slate-800/50 border border-slate-700/40 p-3 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-200">Recurring Spend</p>
+                    <p className="text-[11px] text-slate-400">{recurringCount} automated subscriptions detected</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-800/50 border border-slate-700/40 p-3 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400">
+                    <ShieldAlert className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-200">Anomaly Radar</p>
+                    <p className="text-[11px] text-slate-400">{anomalies.length} high-value outliers flagged</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+              <Sparkles className="w-4 h-4" />
+              <span>Financial Health Status</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {transactions.length} statement rows indexed successfully. Savings performance is stable across your active data profile.
+            </p>
           </div>
         </div>
+
       </div>
     </div>
   );

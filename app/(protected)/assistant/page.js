@@ -1,31 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Sparkles, Send, Bot, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function AssistantPage() {
-  const searchParams = useSearchParams();
-  const initialQuery = searchParams.get('q');
-
   const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: "Hello! I am your WealthMind AI Financial Copilot. I analyze your secure transaction embeddings and deterministic metrics to answer your financial questions.",
-    },
+    { role: 'assistant', content: 'Hello! I am your WealthMind AI Financial Copilot. I analyze your secure transaction embeddings and deterministic metrics to answer your financial questions.' }
   ]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const messagesEndRef = useRef(null);
-
-  const suggestedPrompts = [
-    "Where am I spending the most this month?",
-    "Which transactions look unusual?",
-    "What subscriptions are costing me money?",
-    "Which category is increasing fastest?",
-    "How can I reduce discretionary spending?",
-    "Give me a summary of my financial health.",
-  ];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,152 +16,136 @@ export default function AssistantPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, loading]);
+  }, [messages, isSubmitting]);
 
-  useEffect(() => {
-    if (initialQuery) {
-      handleSendMessage(initialQuery);
-    }
-  }, [initialQuery]);
+  const handleSendMessage = async (text) => {
+    const messageText = text || input;
+    if (isSubmitting || !messageText.trim()) return;
+    
+    setIsSubmitting(true);
+    setInput('');
 
-  const handleSendMessage = async (textToSend) => {
-    const query = textToSend || input;
-    if (!query.trim() || loading) return;
-
-    const userMessage = { role: 'user', content: query };
+    // Append user message to state
+    const userMessage = { role: 'user', content: messageText };
     setMessages((prev) => [...prev, userMessage]);
-    if (!textToSend) setInput('');
-    setLoading(true);
 
     try {
-      const response = await fetch('/api/assistant/chat', {
+      const response = await fetch('/api/embed/assistant/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: query }),
+        body: JSON.stringify({ message: messageText }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate response.');
+        throw new Error(`Server returned status ${response.status}`);
       }
 
+      const data = await response.json();
+      
+      // Append assistant response to state
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: data.answer || 'No response generated.' },
+        { role: 'assistant', content: data.reply || 'No response generated.' }
       ]);
     } catch (err) {
       console.error('Chat error:', err);
       setMessages((prev) => [
         ...prev,
-        {
-          role: 'assistant',
-          content: `Error: ${err.message || 'Unable to connect to RAG assistant.'}`,
-          isError: true,
-        },
+        { role: 'assistant', content: `Error: ${err.message}` }
       ]);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
+  const suggestionPills = [
+    "Where am I spending the most?",
+    "Summarize my monthly savings",
+    "What are my recurring expenses?"
+  ];
+
   return (
-    <div className="p-8 max-w-5xl mx-auto h-[calc(100vh-2rem)] flex flex-col text-slate-100">
-      {/* Header */}
-      <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-slate-800">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <Sparkles className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">AI Financial Copilot</h1>
-          <p className="text-xs text-slate-400">Secure RAG retrieval & vector-grounded financial reasoning</p>
-        </div>
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-5xl mx-auto p-4 md:p-6 text-slate-100">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">WealthMind Financial Copilot</h1>
+        <p className="text-xs text-slate-400">Secure RAG retrieval & vector-grounded financial reasoning</p>
       </div>
 
-      {/* Chat Messages Area */}
-      <div className="flex-1 overflow-y-auto space-y-6 pr-4 mb-6 custom-scrollbar">
+      {/* Chat History Container */}
+      <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4">
         {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`flex items-start space-x-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          <div 
+            key={index} 
+            className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                <Bot className="w-4 h-4 text-indigo-400" />
+              <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shrink-0 text-sm font-bold">
+                AI
               </div>
             )}
-            <div
-              className={`max-w-xl rounded-2xl px-5 py-4 text-sm leading-relaxed shadow-md ${
-                msg.role === 'user'
-                  ? 'bg-indigo-600 text-white rounded-tr-none'
-                  : msg.isError
-                  ? 'bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-tl-none'
-                  : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+            <div className={`p-4 rounded-2xl max-w-[80%] text-sm leading-relaxed ${
+              msg.role === 'user' 
+                ? 'bg-indigo-600 text-white rounded-br-none' 
+                : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none shadow-md'
+            }`}>
+              {msg.content}
             </div>
             {msg.role === 'user' && (
-              <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
-                <User className="w-4 h-4 text-slate-300" />
+              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white shrink-0 text-sm font-bold">
+                U
               </div>
             )}
           </div>
         ))}
-
-        {loading && (
-          <div className="flex items-start space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
-              <Bot className="w-4 h-4 text-indigo-400 animate-pulse" />
+        {isSubmitting && (
+          <div className="flex items-start gap-3 justify-start animate-pulse">
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shrink-0 text-sm font-bold">
+              AI
             </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl rounded-tl-none px-5 py-4 text-sm text-slate-400 animate-pulse">
-              Retrieving relevant transaction embeddings & reasoning...
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 text-sm">
+              Analyzing your financial data...
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Prompts */}
-      {messages.length <= 2 && (
-        <div className="mb-4 space-y-2">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Suggested Prompts</span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {suggestedPrompts.map((prompt, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSendMessage(prompt)}
-                className="text-left text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/30 p-3 rounded-xl text-slate-300 transition-all flex items-center justify-between group"
-              >
-                <span>{prompt}</span>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 transition-colors" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Suggestion Pills */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {suggestionPills.map((pill, idx) => (
+          <button
+            key={idx}
+            disabled={isSubmitting}
+            onClick={() => handleSendMessage(pill)}
+            className="text-xs bg-slate-800/80 hover:bg-slate-700 text-indigo-300 border border-slate-700/60 px-3 py-1.5 rounded-full transition cursor-pointer disabled:opacity-50"
+          >
+            {pill}
+          </button>
+        ))}
+      </div>
 
       {/* Input Form */}
-      <form
+      <form 
         onSubmit={(e) => {
           e.preventDefault();
-          handleSendMessage();
+          handleSendMessage(input);
         }}
-        className="relative bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-lg flex items-center"
+        className="flex gap-2 bg-slate-900 p-2 border border-slate-800 rounded-2xl shadow-lg"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question about your transactions, spending habits, or budget..."
-          className="flex-1 bg-transparent px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
+          placeholder="Ask anything about your transactions, spending, or budgets..."
+          disabled={isSubmitting}
+          className="flex-1 bg-transparent px-4 py-2 text-sm text-slate-100 focus:outline-none disabled:opacity-50"
         />
         <button
           type="submit"
-          disabled={loading || !input.trim()}
-          className="p-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl transition-all shadow-md shadow-indigo-600/20"
+          disabled={isSubmitting || !input.trim()}
+          className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-50 cursor-pointer"
         >
-          <Send className="w-4 h-4" />
+          Send
         </button>
       </form>
     </div>

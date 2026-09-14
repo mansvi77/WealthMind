@@ -41,7 +41,7 @@ export default function Sidebar() {
       items: [
         { name: 'Transactions', href: '/transactions', icon: Receipt },
         { name: 'Recurring Spend', href: '/recurring', icon: Repeat },
-        { name: 'Wealth Leaks', href: '/wealth-leaks', icon: Flame },
+        
       ],
     },
     {
@@ -49,7 +49,7 @@ export default function Sidebar() {
       items: [
         { name: 'Anomaly Radar', href: '/anomalies', icon: ShieldAlert },
         { name: 'Expense Drift', href: '/drift', icon: TrendingUp },
-        { name: 'What-If Simulator', href: '/what-if', icon: SlidersHorizontal },
+        
         { name: 'Monte Carlo Simulation', href: '/simulation', icon: Dice5 },
       ],
     },
