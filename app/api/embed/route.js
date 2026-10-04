@@ -1,25 +1,32 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '../../../../lib/supabaseClient';
-import { generateEmbedding } from '../../../../lib/ai/embeddings';
+import { createClient } from '@supabase/supabase-js';
+import OpenAI from 'openai';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req) {
   try {
-    const { transactionId, userId, description, amount, category, date } = await req.json();
+    const { text, userId } = await req.json();
 
-    const content = `Transaction on ${date}: ${description}, Amount: ${amount}, Category: ${category}`;
-    const embedding = await generateEmbedding(content);
+    if (!text) {
+      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    }
 
-    const { error } = await supabase.from('transaction_embeddings').insert({
-      transaction_id: transactionId,
-      user_id: userId,
-      content,
-      embedding,
+    const embeddingResponse = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: text.replace(/\n/g, ' '),
     });
+    
+    const vector = embeddingResponse.data[0].embedding;
 
-    if (error) throw error;
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, embedding: vector });
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Embedding API Error:', err);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
