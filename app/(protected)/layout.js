@@ -11,7 +11,7 @@ const navigation = [
   // High-Impact Portfolio Sidebar Modules
   { name: 'Anomaly Radar', href: '/anomalies', icon: '⚠️' },
   { name: 'Expense Drift', href: '/drift', icon: '📈' },
-  { name: 'Monte Carlo Sim', href: '/simulation', icon: '🎲' },
+  
 ];
 
 export default function ProtectedLayout({ children }) {

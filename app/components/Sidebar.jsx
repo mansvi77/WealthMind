@@ -8,11 +8,8 @@ import {
   Repeat, 
   ShieldAlert, 
   TrendingUp, 
-  Dice5, 
-  SlidersHorizontal, 
   Sparkles, 
   FileText, 
-  Flame,
   LogOut 
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -41,7 +38,6 @@ export default function Sidebar() {
       items: [
         { name: 'Transactions', href: '/transactions', icon: Receipt },
         { name: 'Recurring Spend', href: '/recurring', icon: Repeat },
-        
       ],
     },
     {
@@ -49,8 +45,6 @@ export default function Sidebar() {
       items: [
         { name: 'Anomaly Radar', href: '/anomalies', icon: ShieldAlert },
         { name: 'Expense Drift', href: '/drift', icon: TrendingUp },
-        
-        { name: 'Monte Carlo Simulation', href: '/simulation', icon: Dice5 },
       ],
     },
     {
