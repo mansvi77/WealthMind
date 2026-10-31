@@ -11,7 +11,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req) {
   try {
-    const { text, userId } = await req.json();
+    const { text } = await req.json();
 
     if (!text) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
@@ -21,9 +21,8 @@ export async function POST(req) {
       model: 'text-embedding-3-small',
       input: text.replace(/\n/g, ' '),
     });
-    
-    const vector = embeddingResponse.data[0].embedding;
 
+    const vector = embeddingResponse.data[0].embedding;
     return NextResponse.json({ success: true, embedding: vector });
   } catch (err) {
     console.error('Embedding API Error:', err);
