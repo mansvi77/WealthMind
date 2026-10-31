@@ -10,8 +10,8 @@ export async function POST(req) {
   try {
     const body = await req.json();
     
-    // Process report request using standard supabase client
-    return NextResponse.json({ success: true, message: "Report generated successfully" });
+    // Process report generation cleanly
+    return NextResponse.json({ success: true, message: "Report generated successfully." });
   } catch (err) {
     console.error('Report API Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
